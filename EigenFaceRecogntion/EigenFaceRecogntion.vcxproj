@@ -103,10 +103,12 @@
     <ClInclude Include="ImageProcessor.hpp" />
     <ClInclude Include="IImageReader.hpp" />
     <ClInclude Include="IImagesPathGetter.hpp" />
+    <ClInclude Include="JSONExtension.hpp" />
     <ClInclude Include="JSONService.hpp" />
     <ClInclude Include="ResizingImageProcessor.hpp" />
     <ClInclude Include="SilenceLogger.hpp" />
     <ClInclude Include="TestCasesImagesPathGetter.hpp" />
+    <ClInclude Include="ImageDecomposition.hpp" />
     <ClInclude Include="Utils.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

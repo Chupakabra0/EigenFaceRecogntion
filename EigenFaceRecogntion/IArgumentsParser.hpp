@@ -1,5 +1,5 @@
 #pragma once
-#include <set>
+#include <vector>
 
 struct IArgumentsParser {
 public:
@@ -10,6 +10,6 @@ public:
 	virtual [[nodiscard]] bool IsTrain() = 0;
 	virtual [[nodiscard]] bool IsGuess() = 0;
 
-	virtual [[nodiscard]] std::set<std::string> CalculateGuessPaths()  = 0;
-	virtual [[nodiscard]] std::set<std::string> CalculateTrainPaths() = 0;
+	virtual [[nodiscard]] std::vector<std::string> CalculateGuessPaths()  = 0;
+	virtual [[nodiscard]] std::vector<std::string> CalculateTrainPaths() = 0;
 };

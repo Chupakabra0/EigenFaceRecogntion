@@ -14,6 +14,8 @@
 #include "IArgumentsParser.hpp"
 #include "IFileService.hpp"
 
+#include "ImageDecomposition.hpp"
+
 class App {
 public:
 	enum RETURN_CODES {
@@ -23,7 +25,8 @@ public:
 		IMAGE_CONVERTER_NULLPTR,
 		APP_LOGGER_NULLPTR,
 		ARG_PARSER_NULLPTR,
-		TRAIN_DATA_NULLPTR
+		TRAIN_DATA_NULLPTR,
+		TRAIN_DATA_EMPTY
 	};
 
 	explicit App(IImageReader* imageReader, IImageProcessor* imageProcessorChain,
@@ -31,7 +34,7 @@ public:
 		: imageReader_(std::move(imageReader)), imageProcessorChain_(std::move(imageProcessorChain)),
 		  appLogger_(std::move(appLogger)), argumentsParser_(std::move(argumentsParser)),
 		  fileService_(std::move(fileService)), imageConverter_(new ImageConverter<cv::Vec<double, BASIS_IMAGE_SIZE>>()),
-		  meanFace_(nullptr), eigenVectors_(nullptr), weightsMatrix_(nullptr) {
+		  meanFace_(nullptr), eigenVectors_(nullptr), trainImages_(new std::vector<ImageDecomposition>()) {
 
 	}
 
@@ -72,11 +75,9 @@ private:
 	std::unique_ptr<IFileService> fileService_;
 	std::unique_ptr<ImageConverter<cv::Vec<double, BASIS_IMAGE_SIZE>>> imageConverter_;
 
-	std::unique_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> meanFace_;
-	std::unique_ptr<cv::Mat> eigenVectors_;
-	std::unique_ptr<cv::Mat> weightsMatrix_;
-
-	std::vector<std::string> fileNames_;
+	std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> meanFace_;
+	std::shared_ptr<cv::Mat> eigenVectors_;
+	std::shared_ptr<std::vector<ImageDecomposition>> trainImages_;
 
 	[[nodiscard]] App::RETURN_CODES DataValidation_() {
 		if (this->appLogger_ == nullptr) {
@@ -107,14 +108,20 @@ private:
 	}
 
 	[[nodiscard]] App::RETURN_CODES Train_() {
-		const std::set<std::string> filePaths = this->argumentsParser_->CalculateTrainPaths();
-		auto* imageVecMatrix                  = new cv::Mat(static_cast<int>(filePaths.size()), BASIS_IMAGE_SIZE, CV_64FC1, 0.0);
+		// Preparations for loop
+		const std::vector<std::string> filePaths = this->argumentsParser_->CalculateTrainPaths();
+
+		// C-pointer because of face recogntion construction
+		auto* imageVecMatrix                     = new cv::Mat(
+			static_cast<int>(filePaths.size()), BASIS_IMAGE_SIZE, CV_64FC1, 0.0
+		);
 
 		for (auto i = 0; i < filePaths.size(); ++i) {
-			const auto& fp = *std::next(filePaths.begin(), i);
+			const auto& fp = filePaths[i];
 
 			this->appLogger_->PrintMessage(fmt::format("File path: {}\n", fp));
 
+			// Image processing
 			const auto image          = this->imageReader_->ReadImage(fp);
 			const auto processedImage = this->imageProcessorChain_->ProcessImage(image);
 			const auto vec            = this->imageConverter_->Convert(processedImage);
@@ -122,62 +129,75 @@ private:
 			this->appLogger_->PrintImage(image, fp);
 			this->appLogger_->PrintImage(processedImage, fp);
 
+			// cv::Vec to cv::Mat
 			for (auto j = 0; j < imageVecMatrix->cols; ++j) {
 				imageVecMatrix->at<double>(i, j) = vec(j);
 			}
 
 			this->appLogger_->PrintMatrix(*imageVecMatrix, "Images Matrix");
-			this->fileNames_.push_back(fp);
 		}
 
-		std::unique_ptr<FaceRecognition> faceRecogntion = std::make_unique<FaceRecognition>(imageVecMatrix);
-
-		this->meanFace_ = std::unique_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace());
-
-		const auto phiMatrix  = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(this->meanFace_.get()));
+		// Calculations of mean face, phi faces and covariance matrix
+		auto faceRecogntion   = std::make_unique<FaceRecognition>(imageVecMatrix);
+		auto meanFace         = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace());
+		const auto phiMatrix  = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(meanFace.get()));
 		const auto cvrsMatrix = std::unique_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
 
-		this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*this->meanFace_), "Mean Face");
-		cv::imwrite("Mean_Face.jpg", this->imageConverter_->ConvertBack(*this->meanFace_));
+		this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*meanFace), "Mean Face");
+		cv::imwrite("Mean_Face.jpg", this->imageConverter_->ConvertBack(*meanFace));
 
+		// Eigen calculations
 		const auto [tempValues, tempMatrix] = faceRecogntion->CalculateEigenValuesAndVectors(cvrsMatrix.get());
 
-		this->eigenVectors_  = std::make_unique<cv::Mat>(static_cast<int>(filePaths.size()), tempMatrix->cols, CV_64FC1, 0.0);
+		// Take first n eigen vectors
+		auto eigenVectors = std::make_shared<cv::Mat>(static_cast<int>(filePaths.size()), tempMatrix->cols, CV_64FC1, 0.0);
 		for (auto i = 0; i < filePaths.size(); ++i) {
 			for (auto j = 0; j < tempMatrix->cols; ++j) {
-				this->eigenVectors_->at<double>(i, j) = tempMatrix->at<double>(i, j);
+				eigenVectors->at<double>(i, j) = tempMatrix->at<double>(i, j);
 			}
 		}
 
-		this->weightsMatrix_ = std::unique_ptr<cv::Mat>(
-			faceRecogntion->CalculateWeightsMatrix(phiMatrix.get(), this->eigenVectors_.get())
+		// Weights calculations
+		const auto weightsMatrix = std::unique_ptr<cv::Mat>(
+			faceRecogntion->CalculateWeightsMatrix(phiMatrix.get(), eigenVectors.get())
 		);
 
-		this->appLogger_->PrintMatrix(*this->weightsMatrix_, "Weights Matrix");
-		this->fileService_->Write("temp.json", *this->meanFace_, *this->eigenVectors_, *this->weightsMatrix_);
+		this->appLogger_->PrintMatrix(*weightsMatrix, "Weights Matrix");
 
-		this->RestoreBasicImages_(faceRecogntion, filePaths, this->weightsMatrix_, this->eigenVectors_, this->meanFace_);
+		// Check by restoring basic images
+		this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
 
 		this->appLogger_->PrintMessage(fmt::format(fmt::fg(fmt::rgb(0, 255, 0)), "Application ended...\n"));
+
+		// Remember important data
+		this->meanFace_     = meanFace;
+		this->eigenVectors_ = eigenVectors;
+		for (auto i = 0; i < weightsMatrix->rows; ++i) {
+			this->trainImages_->emplace_back(filePaths[i], weightsMatrix->row(i));
+		}
+
+		this->fileService_->Write("temp.json", *this->meanFace_, *this->eigenVectors_, *this->trainImages_);
 
 		return App::RETURN_CODES::NO_ERROR;
 	}
 
 	[[nodiscard]] App::RETURN_CODES Guess_() {
-		if (this->meanFace_ == nullptr || this->eigenVectors_ == nullptr || this->weightsMatrix_ == nullptr) {
+		if (this->meanFace_ == nullptr || this->eigenVectors_ == nullptr || this->trainImages_ == nullptr) {
 			if (std::filesystem::exists("temp.json")) {
-				this->fileService_->Read("temp.json", *this->meanFace_, *this->eigenVectors_, *this->weightsMatrix_);
+				this->fileService_->Read("temp.json", *this->meanFace_, *this->eigenVectors_, *this->trainImages_);
 			}
 			else {
 				return App::RETURN_CODES::TRAIN_DATA_NULLPTR;
 			}
 		}
+		if (this->eigenVectors_->rows == 0 || this->trainImages_->empty()) {
+			return App::RETURN_CODES::TRAIN_DATA_EMPTY;
+		}
 
-		const std::set<std::string> filePaths = this->argumentsParser_->CalculateGuessPaths();
-		//auto* imageVecMatrix                  = new cv::Mat(static_cast<int>(filePaths.size()), BASIS_IMAGE_SIZE, CV_64FC1, 0.0);
+		const std::vector<std::string> filePaths = this->argumentsParser_->CalculateGuessPaths();
 
 		for (auto i = 0; i < filePaths.size(); ++i) {
-			const auto& fp = *std::next(filePaths.begin(), i);
+			const auto& fp = filePaths[i];
 
 			this->appLogger_->PrintMessage(fmt::format("File path: {}\n", fp));
 
@@ -189,7 +209,7 @@ private:
 			this->appLogger_->PrintImage(processedImage, fp);
 
 			const auto phi  = std::make_unique<cv::Vec<double, BASIS_IMAGE_SIZE>>(vec - *this->meanFace_);
-			auto weights    = std::make_unique<cv::Mat>(1, this->weightsMatrix_->cols, CV_64FC1, 0.0);
+			auto weights    = std::make_unique<cv::Mat>(1, this->trainImages_->front().GetCoeffs().size(), CV_64FC1, 0.0);
 
 			for (auto i = 0; i < weights->cols; ++i) {
 				weights->at<double>(0, i) = this->eigenVectors_->row(i).dot(phi->t());
@@ -197,26 +217,25 @@ private:
 
 			auto distances = std::make_unique<cv::Mat>(1, weights->cols, CV_64FC1, 0.0);
 			for (auto i = 0; i < distances->cols; ++i) {
-				distances->at<double>(0, i) = cv::norm(*weights, this->weightsMatrix_->row(i), cv::NORM_L2);
+				distances->at<double>(0, i) = cv::norm(*weights, this->trainImages_->at(i).GetCoeffs(), cv::NORM_L2);
 			}
 
 			double minValue = 0.0;
 			cv::Point minIndex = cv::Point();
 			cv::minMaxLoc(*distances, &minValue, nullptr, &minIndex, nullptr);
 
-			this->appLogger_->PrintMessage(fmt::format("\nEuclid:\nIt's {}-th face\nDistance: {}\nName: {}",
-				minIndex.x, minValue, this->fileNames_[minIndex.x])
+			fmt::print("Image name: {}\nBest fit image: {}\nDistance: {}\n---------------\n",
+				fp, this->trainImages_->at(minIndex.x).GetName(), minValue
 			);
 		}
 
 		return App::RETURN_CODES::NO_ERROR;
 	}
 
-	void RestoreBasicImages_(const std::unique_ptr<FaceRecognition>& faceRecogntion, const std::set<std::string>& filePaths,
-		const std::unique_ptr<cv::Mat>& weightsMatrix, const std::unique_ptr<cv::Mat>& eigenVectors,
-		const std::unique_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>& meanFace) {
+	void RestoreBasicImages_(FaceRecognition* faceRecogntion, const std::vector<std::string>& filePaths,
+		cv::Mat* weightsMatrix, cv::Mat* eigenVectors, cv::Vec<double, BASIS_IMAGE_SIZE>* meanFace) {
 		for (auto i = 0; i < filePaths.size(); ++i) {
-			const auto restoredImage = faceRecogntion->RestoreImage(weightsMatrix->row(i), eigenVectors.get(), meanFace.get());
+			const auto restoredImage = faceRecogntion->RestoreImage(weightsMatrix->row(i), eigenVectors, meanFace);
 
 			this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*restoredImage), "Restored Image");
 			cv::imwrite(fmt::format("Restored_{}.jpg", i + 1), this->imageConverter_->ConvertBack(*restoredImage));

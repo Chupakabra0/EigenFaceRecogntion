@@ -37,26 +37,20 @@ public:
 		}
 	}
 
-	[[nodiscard]] bool IsTrain() {
+	[[nodiscard]] bool IsTrain() override {
 		return this->trainPaths_.Matched();
 	}
 
-	[[nodiscard]] bool IsGuess() {
+	[[nodiscard]] bool IsGuess() override {
 		return this->guessPaths_.Matched();
 	}
 
-	virtual [[nodiscard]] std::set<std::string> CalculateTrainPaths() override {
-		const auto& temp = this->trainPaths_.Get();
-		const std::set<std::string> result(temp.begin(), temp.end());
-
-		return result;
+	virtual [[nodiscard]] std::vector<std::string> CalculateTrainPaths() override {
+		return this->trainPaths_.Get();
 	}
 
-	virtual [[nodiscard]] std::set<std::string> CalculateGuessPaths() override {
-		const auto& temp = this->guessPaths_.Get();
-		const std::set<std::string> result(temp.begin(), temp.end());
-
-		return result;
+	virtual [[nodiscard]] std::vector<std::string> CalculateGuessPaths() override {
+		return this->guessPaths_.Get();
 	}
 
 private:

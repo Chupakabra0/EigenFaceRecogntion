@@ -9,7 +9,7 @@ class JSONService : public IFileService {
 private:
 	static constexpr const char* MEAN_FACE_KEY     = "MeanFace";
 	static constexpr const char* EIGEN_MATRIX_KEY  = "EigenMatrix";
-	static constexpr const char* WEIGHT_MATRIX_KEY = "WeightMatrix";
+	static constexpr const char* IMAGE_KEY         = "ImageDecomposition";
 
 public:
 	explicit JSONService() {
@@ -20,7 +20,7 @@ public:
 
 	// TODO: WRITE IMAGE'S NAMES
 	void Write(const std::string& filePath, const cv::Vec<double, BASIS_IMAGE_SIZE>& meanFace, const cv::Mat& eigenMatrix,
-		const cv::Mat& weightMatrix) override {
+		const std::vector<ImageDecomposition>& images) override {
 		std::fstream file(filePath, std::fstream::out);
 
 		if (!file.is_open()) {
@@ -30,7 +30,7 @@ public:
 		nlohmann::json json = {
 			{ JSONService::MEAN_FACE_KEY, ConvertVecToVector(meanFace) },
 			{ JSONService::EIGEN_MATRIX_KEY, ConvertMatToVectors(eigenMatrix) },
-			{ JSONService::WEIGHT_MATRIX_KEY, ConvertMatToVectors(weightMatrix) }
+			{ JSONService::IMAGE_KEY, images }
 		};
 
 		file << json.dump(4);
@@ -38,7 +38,7 @@ public:
 
 	// TODO: READ IMAGE'S NAMES
 	void Read(const std::string& filePath, cv::Vec<double, BASIS_IMAGE_SIZE>& meanFace, cv::Mat& eigenMatrix,
-		cv::Mat& weightMatrix) override {
+		std::vector<ImageDecomposition>& images) override {
 		std::fstream file(filePath, std::fstream::in);
 
 		if (!file.is_open()) {
@@ -50,6 +50,6 @@ public:
 
 		meanFace     = ConvertVectorToVec<BASIS_IMAGE_SIZE>(json.at(JSONService::MEAN_FACE_KEY));
 		eigenMatrix  = ConvertVectorsToMat(json.at(JSONService::EIGEN_MATRIX_KEY));
-		weightMatrix = ConvertVectorsToMat(json.at(JSONService::WEIGHT_MATRIX_KEY));
+		images       = json.at(JSONService::IMAGE_KEY);
 	}
 };
