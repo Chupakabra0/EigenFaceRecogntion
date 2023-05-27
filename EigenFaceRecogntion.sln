@@ -5,6 +5,10 @@ VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EigenFaceRecogntion", "EigenFaceRecogntion\EigenFaceRecogntion.vcxproj", "{AE817B20-DC48-47FB-BF5A-A6A69B3DE015}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MeanFaceGenerator", "MeanFaceGenerator\MeanFaceGenerator.vcxproj", "{9E29E528-E79F-4CCB-87C1-D1D8BB4025B5}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArgsGenerator", "ArgsGenerator\ArgsGenerator.vcxproj", "{9B2967A4-F853-4CB1-B012-5A391BAAF5BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +19,14 @@ Global
 		{AE817B20-DC48-47FB-BF5A-A6A69B3DE015}.Debug|x64.Build.0 = Debug|x64
 		{AE817B20-DC48-47FB-BF5A-A6A69B3DE015}.Release|x64.ActiveCfg = Release|x64
 		{AE817B20-DC48-47FB-BF5A-A6A69B3DE015}.Release|x64.Build.0 = Release|x64
+		{9E29E528-E79F-4CCB-87C1-D1D8BB4025B5}.Debug|x64.ActiveCfg = Debug|x64
+		{9E29E528-E79F-4CCB-87C1-D1D8BB4025B5}.Debug|x64.Build.0 = Debug|x64
+		{9E29E528-E79F-4CCB-87C1-D1D8BB4025B5}.Release|x64.ActiveCfg = Release|x64
+		{9E29E528-E79F-4CCB-87C1-D1D8BB4025B5}.Release|x64.Build.0 = Release|x64
+		{9B2967A4-F853-4CB1-B012-5A391BAAF5BA}.Debug|x64.ActiveCfg = Debug|x64
+		{9B2967A4-F853-4CB1-B012-5A391BAAF5BA}.Debug|x64.Build.0 = Debug|x64
+		{9B2967A4-F853-4CB1-B012-5A391BAAF5BA}.Release|x64.ActiveCfg = Release|x64
+		{9B2967A4-F853-4CB1-B012-5A391BAAF5BA}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

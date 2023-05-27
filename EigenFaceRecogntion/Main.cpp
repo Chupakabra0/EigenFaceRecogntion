@@ -7,6 +7,7 @@
 #include "DefaultAppLogger.hpp"
 #include "SilenceLogger.hpp"
 #include "ImageLogger.hpp"
+#include "MessageLogger.hpp"
 #include "JSONService.hpp"
 #include "Consts.hpp"
 
@@ -21,7 +22,7 @@ int main(int argc, char** argv) {
 	IImageProcessor* imageProcessorChain(
 		new GrayscaleImageProcessor(new ResizingImageProcessor(BASIS_IMAGE_HEIGHT, BASIS_IMAGE_WIDTH))
 	);
-	IAppLogger* appLogger(new SilenceLogger());
+	IAppLogger* appLogger(new MessageLogger(std::cout));
 	IFileService* fileService(new JSONService());
 
 	App app(imageReader, imageProcessorChain, appLogger, argumentsParser, fileService);

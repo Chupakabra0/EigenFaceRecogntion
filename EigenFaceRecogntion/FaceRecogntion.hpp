@@ -38,22 +38,32 @@ public:
 		auto avgs  = std::make_unique<cv::Mat>();
 
 		cv::calcCovarMatrix(*phiMatrix, *cvrs, *avgs, cv::COVAR_ROWS | cv::COVAR_NORMAL);
-		*cvrs /= phiMatrix->rows - 1;
+		*cvrs /= phiMatrix->rows;
+		//*cvrs = *phiMatrix->t() * phiMatrix / phiMatrix->rows;
 
 		return cvrs;
 	}
 
-	std::pair<cv::Vec<double, BASIS_IMAGE_SIZE>*, cv::Mat*> CalculateEigenValuesAndVectors(cv::Mat* cvrs) const {
-		auto* eigenValues  = new cv::Vec<double, BASIS_IMAGE_SIZE>();
+	//std::pair<cv::Vec<double, BASIS_IMAGE_SIZE>*, cv::Mat*> CalculateEigenValuesAndVectors(cv::Mat* cvrs) const {
+	//	auto* eigenValues  = new cv::Vec<double, BASIS_IMAGE_SIZE>();
+	//	auto* eigenVectors = new cv::Mat();
+
+	//	cv::eigenNonSymmetric(*cvrs, *eigenValues, *eigenVectors);
+
+	//	return std::make_pair(eigenValues, eigenVectors);
+	//}
+
+	std::pair<cv::Mat*, cv::Mat*> CalculateEigenValuesAndVectors(cv::Mat* cvrs) const {
+		auto* eigenValues  = new cv::Mat();
 		auto* eigenVectors = new cv::Mat();
 
-		cv::eigenNonSymmetric(*cvrs, *eigenValues, *eigenVectors);
+		cv::eigen(*cvrs, *eigenValues, *eigenVectors);
 
 		return std::make_pair(eigenValues, eigenVectors);
 	}
 
 	cv::Mat* CalculateWeightsMatrix(cv::Mat* phiMatrix, cv::Mat* eigenVectors) const {
-		auto* weightMatrix = new cv::Mat(phiMatrix->rows, phiMatrix->rows, CV_64FC1, 0.0);
+		auto* weightMatrix = new cv::Mat(phiMatrix->rows, eigenVectors->rows, CV_64FC1, 0.0);
 
 		for (auto i = 0; i < weightMatrix->rows; ++i) {
 			for (auto j = 0; j < weightMatrix->cols; ++j) {

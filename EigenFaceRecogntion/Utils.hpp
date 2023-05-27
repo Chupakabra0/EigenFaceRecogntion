@@ -21,7 +21,7 @@ cv::Vec<double, Size> ConvertVectorToVec(const std::vector<double>& vec) {
 }
 
 std::vector<std::vector<double>> ConvertMatToVectors(const cv::Mat& mat) {
-    if (mat.type() != CV_64F) {
+    if (mat.type() != CV_64FC1) {
         throw std::runtime_error("Input matrix should be of type CV_64F (double)");
     }
 
@@ -45,7 +45,7 @@ cv::Mat ConvertVectorsToMat(const std::vector<std::vector<double>>& vec) {
     const int numRows = static_cast<int>(vec.size());
     const int numCols = (numRows > 0) ? static_cast<int>(vec[0].size()) : 0;
 
-    cv::Mat mat(numRows, numCols, CV_64F);
+    cv::Mat mat(numRows, numCols, CV_64FC1);
 
     for (int i = 0; i < numRows; i++) {
         const std::vector<double>& row = vec[i];

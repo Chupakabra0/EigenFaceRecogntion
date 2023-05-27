@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <filesystem>
+#include <algorithm>
 #include <opencv2/core/utils/logger.hpp>
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -34,7 +35,7 @@ public:
 		: imageReader_(std::move(imageReader)), imageProcessorChain_(std::move(imageProcessorChain)),
 		  appLogger_(std::move(appLogger)), argumentsParser_(std::move(argumentsParser)),
 		  fileService_(std::move(fileService)), imageConverter_(new ImageConverter<cv::Vec<double, BASIS_IMAGE_SIZE>>()),
-		  meanFace_(nullptr), eigenVectors_(nullptr), trainImages_(new std::vector<ImageDecomposition>()) {
+		  meanFace_(nullptr), eigenVectors_(nullptr), eigenValues_(nullptr), trainImages_(new std::vector<ImageDecomposition>()) {
 
 	}
 
@@ -77,6 +78,7 @@ private:
 
 	std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> meanFace_;
 	std::shared_ptr<cv::Mat> eigenVectors_;
+	std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> eigenValues_;
 	std::shared_ptr<std::vector<ImageDecomposition>> trainImages_;
 
 	[[nodiscard]] App::RETURN_CODES DataValidation_() {
@@ -112,9 +114,7 @@ private:
 		const std::vector<std::string> filePaths = this->argumentsParser_->CalculateTrainPaths();
 
 		// C-pointer because of face recogntion construction
-		auto* imageVecMatrix                     = new cv::Mat(
-			static_cast<int>(filePaths.size()), BASIS_IMAGE_SIZE, CV_64FC1, 0.0
-		);
+		auto* imageVecMatrix = new cv::Mat(static_cast<int>(filePaths.size()), BASIS_IMAGE_SIZE, CV_64FC1, 0.0);
 
 		for (auto i = 0; i < filePaths.size(); ++i) {
 			const auto& fp = filePaths[i];
@@ -138,10 +138,10 @@ private:
 		}
 
 		// Calculations of mean face, phi faces and covariance matrix
-		auto faceRecogntion   = std::make_unique<FaceRecognition>(imageVecMatrix);
-		auto meanFace         = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace());
-		const auto phiMatrix  = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(meanFace.get()));
-		const auto cvrsMatrix = std::unique_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
+		const auto faceRecogntion = std::make_unique<FaceRecognition>(imageVecMatrix);
+		const auto meanFace       = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace());
+		const auto phiMatrix      = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(meanFace.get()));
+		const auto cvrsMatrix     = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
 
 		this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*meanFace), "Mean Face");
 		cv::imwrite("Mean_Face.jpg", this->imageConverter_->ConvertBack(*meanFace));
@@ -150,17 +150,48 @@ private:
 		const auto [tempValues, tempMatrix] = faceRecogntion->CalculateEigenValuesAndVectors(cvrsMatrix.get());
 
 		// Take first n eigen vectors
-		auto eigenVectors = std::make_shared<cv::Mat>(static_cast<int>(filePaths.size()), tempMatrix->cols, CV_64FC1, 0.0);
-		for (auto i = 0; i < filePaths.size(); ++i) {
-			for (auto j = 0; j < tempMatrix->cols; ++j) {
+		//const auto epsilon  = 0.97;
+		//const auto eigenSum = *cv::sum(*tempValues).val;
+		//auto csum           = 0.0;
+		auto n              = std::min(imageVecMatrix->rows, imageVecMatrix->cols);
+		
+		//for (auto i = 0; i < tempValues->rows; ++i) {
+		//	csum += tempValues->at<double>(i, 0);
+
+		//	if (csum / eigenSum >= epsilon) {
+		//		n = i + 1;
+		//		break;
+		//	}
+		//}
+
+		//const auto n = static_cast<int>(filePaths.size());
+		auto eigenVectors = std::make_shared<cv::Mat>(n, tempMatrix->cols, CV_64FC1, 0.0);
+		for (auto i = 0; i < eigenVectors->rows; ++i) {
+			for (auto j = 0; j < eigenVectors->cols; ++j) {
 				eigenVectors->at<double>(i, j) = tempMatrix->at<double>(i, j);
 			}
+
+			auto tempImage = std::make_unique<cv::Mat>();
+			cv::normalize(eigenVectors->row(i), *tempImage, 0.0, 255.0, cv::NORM_MINMAX, CV_64FC1);
+
+			this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*tempImage), fmt::format("Eigenface_{}.jpg", i));
+			cv::imwrite(fmt::format("Eigenface_{}.jpg", i), this->imageConverter_->ConvertBack(*tempImage));
 		}
 
+		for (auto i = 0; i < eigenVectors->rows; ++i) {
+			auto tempImage = std::make_unique<cv::Mat>();
+			cv::normalize(eigenVectors->row(i), *tempImage, 0.0, 255.0, cv::NORM_MINMAX, CV_64FC1);
+			*tempImage = this->imageConverter_->ConvertBack(*tempImage);
+
+			this->appLogger_->PrintImage(*tempImage, fmt::format("Eigenface_{}.jpg", i));
+			cv::imwrite(fmt::format("Eigenface_{}.jpg", i), *tempImage);
+		}
+
+		delete tempValues;
+		delete tempMatrix;
+
 		// Weights calculations
-		const auto weightsMatrix = std::unique_ptr<cv::Mat>(
-			faceRecogntion->CalculateWeightsMatrix(phiMatrix.get(), eigenVectors.get())
-		);
+		const auto weightsMatrix = std::unique_ptr<cv::Mat>(faceRecogntion->CalculateWeightsMatrix(phiMatrix.get(), eigenVectors.get()));
 
 		this->appLogger_->PrintMatrix(*weightsMatrix, "Weights Matrix");
 
@@ -215,18 +246,31 @@ private:
 				weights->at<double>(0, i) = this->eigenVectors_->row(i).dot(phi->t());
 			}
 
+			auto data = std::make_unique<cv::Mat>(this->trainImages_->size(), this->trainImages_->front().GetCoeffs().size(), CV_64FC1, 0.0);
+			for (auto i = 0; i < this->trainImages_->size(); ++i) {
+				for (auto j = 0; j < this->trainImages_->front().GetCoeffs().size(); ++j) {
+					data->at<double>(i, j) = (*this->trainImages_)[i].GetCoeffs()[j];
+				}
+			}
+
 			auto distances = std::make_unique<cv::Mat>(1, weights->cols, CV_64FC1, 0.0);
 			for (auto i = 0; i < distances->cols; ++i) {
-				distances->at<double>(0, i) = cv::norm(*weights, this->trainImages_->at(i).GetCoeffs(), cv::NORM_L2);
+				distances->at<double>(0, i) = cv::norm(*weights, data->row(i), cv::NORM_L1);
+				//distances->at<double>(0, i) = cv::norm(*weights, data->row(i), cv::NORM_L2);
+				//distances->at<double>(0, i) = 1.0 - (weights->dot(data->row(i)) / cv::norm(*weights, cv::NORM_L2) / cv::norm(data->row(i), cv::NORM_L2));
 			}
+
+			fmt::print("Image name: {}\n================\n", fp);
 
 			double minValue = 0.0;
 			cv::Point minIndex = cv::Point();
 			cv::minMaxLoc(*distances, &minValue, nullptr, &minIndex, nullptr);
 
-			fmt::print("Image name: {}\nBest fit image: {}\nDistance: {}\n---------------\n",
-				fp, this->trainImages_->at(minIndex.x).GetName(), minValue
+			fmt::print("{} fit image: {}\nDistance: {}\n",
+				"Best", this->trainImages_->at(minIndex.x).GetName(), minValue
 			);
+
+			fmt::print("================\n---------------\n");
 		}
 
 		return App::RETURN_CODES::NO_ERROR;
