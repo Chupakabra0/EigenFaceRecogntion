@@ -207,7 +207,7 @@ private:
 			this->trainImages_->emplace_back(filePaths[i], weightsMatrix->row(i));
 		}
 
-		this->fileService_->Write("temp.json", *this->meanFace_, *this->eigenVectors_, *this->trainImages_);
+		this->fileService_->Write("temp.json", this->meanFace_, this->eigenVectors_, this->trainImages_);
 
 		return App::RETURN_CODES::NO_ERROR;
 	}
@@ -215,7 +215,7 @@ private:
 	[[nodiscard]] App::RETURN_CODES Guess_() {
 		if (this->meanFace_ == nullptr || this->eigenVectors_ == nullptr || this->trainImages_ == nullptr) {
 			if (std::filesystem::exists("temp.json")) {
-				this->fileService_->Read("temp.json", *this->meanFace_, *this->eigenVectors_, *this->trainImages_);
+				this->fileService_->Read("temp.json", this->meanFace_, this->eigenVectors_, this->trainImages_);
 			}
 			else {
 				return App::RETURN_CODES::TRAIN_DATA_NULLPTR;
