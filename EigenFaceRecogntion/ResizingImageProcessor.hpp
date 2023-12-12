@@ -4,16 +4,8 @@
 class ResizingImageProcessor : public ImageProcessor {
 public:
 	explicit ResizingImageProcessor() = delete;
-
-	explicit ResizingImageProcessor(int imageHeight, int imageWidth)
-		: ResizingImageProcessor(imageHeight, imageWidth, nullptr) {
-
-	}
-
-	explicit ResizingImageProcessor(int imageHeight, int imageWidth, ImageProcessor* nextImageProcessor)
-		: ImageProcessor(nextImageProcessor), imageSize_(imageHeight, imageWidth) {
-
-	}
+	explicit ResizingImageProcessor(int imageHeight, int imageWidth);
+	explicit ResizingImageProcessor(int imageHeight, int imageWidth, ImageProcessor* nextImageProcessor);
 
 	ResizingImageProcessor(const ResizingImageProcessor&) = delete;
 	ResizingImageProcessor(ResizingImageProcessor&&) noexcept = default;
@@ -23,28 +15,11 @@ public:
 	ResizingImageProcessor& operator=(const ResizingImageProcessor&) = delete;
 	ResizingImageProcessor& operator=(ResizingImageProcessor&&) noexcept = default;
 
-	[[nodiscard]] cv::Mat ProcessImage(const cv::Mat& image) override {
-		cv::Mat result;
-		cv::resize(image, result, this->imageSize_);
-
-		return ImageProcessor::ProcessImage(result);
-	}
-
-	[[nodiscard]] int GetImageHeight() const {
-		return this->imageSize_.height;
-	}
-
-	void SetImageHeight(int height) {
-		this->imageSize_.height = height;
-	}
-
-	[[nodiscard]] int GetImageWidth() const {
-		return this->imageSize_.height;
-	}
-
-	void SetImageWidth(int width) {
-		this->imageSize_.width = width;
-	}
+	[[nodiscard]] cv::Mat ProcessImage(const cv::Mat& image) override;
+	[[nodiscard]] int GetImageHeight() const;
+	void SetImageHeight(int height);
+	[[nodiscard]] int GetImageWidth() const;
+	void SetImageWidth(int width);
 
 private:
 	cv::Size imageSize_;

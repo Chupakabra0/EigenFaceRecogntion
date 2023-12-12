@@ -84,25 +84,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleLogger.cpp" />
+    <ClCompile Include="DefaultAppLogger.cpp" />
+    <ClCompile Include="DefaultArgumentsParser.cpp" />
+    <ClCompile Include="DefaultImageReader.cpp" />
+    <ClCompile Include="FaceRecognition.cpp" />
+    <ClCompile Include="GrayscaleImageProcessor.cpp" />
+    <ClCompile Include="ImageDecomposition.cpp" />
+    <ClCompile Include="ImageLogger.cpp" />
+    <ClCompile Include="ImageProcessor.cpp" />
+    <ClCompile Include="JSONService.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MessageLogger.cpp" />
+    <ClCompile Include="ResizingImageProcessor.cpp" />
+    <ClCompile Include="SilenceLogger.cpp" />
+    <ClCompile Include="TestCasesImagesPathGetter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.hpp" />
     <ClInclude Include="ConsoleLogger.hpp" />
+    <ClInclude Include="Consts.hpp" />
     <ClInclude Include="DefaultAppLogger.hpp" />
     <ClInclude Include="DefaultArgumentsParser.hpp" />
     <ClInclude Include="DefaultImageReader.hpp" />
-    <ClInclude Include="FaceRecogntion.hpp" />
+    <ClInclude Include="FaceRecognition.hpp" />
     <ClInclude Include="GrayscaleImageProcessor.hpp" />
     <ClInclude Include="IAppLogger.hpp" />
     <ClInclude Include="IArgumentsParser.hpp" />
     <ClInclude Include="IFileService.hpp" />
+    <ClInclude Include="IImageProcessor.hpp" />
     <ClInclude Include="ImageConverter.hpp" />
     <ClInclude Include="ImageLogger.hpp" />
     <ClInclude Include="ImageProcessor.hpp" />
     <ClInclude Include="IImageReader.hpp" />
     <ClInclude Include="IImagesPathGetter.hpp" />
-    <ClInclude Include="JSONExtension.hpp" />
     <ClInclude Include="JSONService.hpp" />
     <ClInclude Include="MessageLogger.hpp" />
     <ClInclude Include="ResizingImageProcessor.hpp" />

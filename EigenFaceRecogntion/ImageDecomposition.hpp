@@ -8,45 +8,17 @@
 
 class ImageDecomposition {
 public:
-	explicit ImageDecomposition(const std::string& name = "", const std::vector<double>& coeffs = {})
-		: name_(name), coeffs_(coeffs) {
-
-	}
+	explicit ImageDecomposition(const std::string& name = "", const std::vector<double>& coeffs = {});
 
 	~ImageDecomposition() = default;
 
-	[[nodiscard]] const std::string& GetName() const {
-		return this->name_;
-	}
+	[[nodiscard]] const std::string& GetName() const;
+	void SetName(const std::string& name);
 
-	void SetName(const std::string& name) {
-		this->name_ = name;
-	}
+	[[nodiscard]] const std::vector<double>& GetCoeffs() const;
+	void SetCoeffs(const std::vector<double>& coeffs);
 
-	[[nodiscard]] const std::vector<double>& GetCoeffs() const {
-		return this->coeffs_;
-	}
-
-	void SetCoeffs(const std::vector<double>& coeffs) {
-		this->coeffs_ = coeffs;
-	}
-
-	friend std::ostream& operator<<(std::ostream& out, const ImageDecomposition& trainImage) {
-		const auto& coeffs = trainImage.coeffs_;
-
-		out << trainImage.name_ << std::endl;
-
-		if (coeffs.empty()) {
-			return out << "[]" << std::endl;
-		}
-
-		out << "[" << coeffs.front();
-		for (auto iter = std::next(coeffs.begin()); iter != coeffs.end(); iter = std::next(iter)) {
-			out << ", " << *iter;
-		}
-
-		return out << "]" << std::endl;
-	}
+	friend std::ostream& operator<<(std::ostream& out, const ImageDecomposition& trainImage);
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ImageDecomposition, name_, coeffs_);
 

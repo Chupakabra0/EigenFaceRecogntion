@@ -56,38 +56,61 @@ void FillFile3(std::fstream& out, const std::vector<std::string>& names) {
 	out << t << " " << g;
 }
 
+void FillFile4(std::fstream& out, const std::vector<std::string>& names) {
+	std::string t = "-t ";
+	std::string g = "-g ";
+
+	for (const auto& name : names) {
+		for (int i = 1; i <= 10; ++i) {
+			if (i <= 9) {
+				t += t.size() == 3 ? fmt::format("Dataset\\{}-{}.png", name, i) : fmt::format(",Dataset\\{}-{}.png", name, i);
+			}
+			else {
+				g += g.size() == 3 ? fmt::format("Dataset\\{}-{}.png", name, i) : fmt::format(",Dataset\\{}-{}.png", name, i);
+			}
+		}
+	}
+
+	out << t << " " << g;
+}
+
 int main() {
-	std::fstream file("FOOTBALL.txt", std::fstream::out);
+	std::fstream file("new_base.txt", std::fstream::out);
 
 	//const std::vector<std::string> names = {
-	//	"Alisson", "Benzema", "Cancelo",
-	//	"Casemiro", "Courtois", "DeBruyne",
-	//	"Donnarumma", "Ederson", "Kane",
-	//	"Kante", "Kimmich", "Lewandowski",
-	//	"Mane", "Mbappe", "Messi",
-	//	"Modirc", "Navas", "Neuer",
-	//	"Neymar", "Oblak", "Ronaldo",
-	//	"Salah", "Son", "VanDijk",
+	//	"Carter", "Cane", "Clint",
+	//	"Christofer", "Charles", "Caleb",
+	//	"Carlos", "Catalina", "Connor",
+	//	"Caroline", "Colin", "Cardell",
+	//	"Cooper", "Christian", "Chase",
+	//	"Calvin", "Colt", "Cezar",
+	//	"Constantin", "Conroy", "Cleveland",
+	//	"Callum", "Clyfford", "Cob",
+	//	"Carman", "Chas", "Cooke",
+	//	"Caroll", "Camdem", "Cuyler",
+	//	"Cephas", "Clara", "Caden",
+	//	"Cobham", "Charlotte", "Cael",
+	//	"Cedrick", "Chip", "Cochran",
+	//	"Claudius"
 	//};
 
 	const std::vector<std::string> names = {
-		"Carter", "Cane", "Clint",
-		"Christofer", "Charles", "Caleb",
-		"Carlos", "Catalina", "Connor",
-		"Caroline", "Colin", "Cardell",
-		"Cooper", "Christian", "Chase",
-		"Calvin", "Colt", "Cezar",
-		"Constantin", "Conroy", "Cleveland",
-		"Callum", "Clyfford", "Cob",
-		"Carman", "Chas", "Cooke",
-		"Caroll", "Camdem", "Cuyler",
-		"Cephas", "Clara", "Caden",
-		"Cobham", "Charlotte", "Cael",
-		"Cedrick", "Chip", "Cochran",
-		"Claudius"
+		"Alan", "Alex", "Ali",
+		"Amani", "Ben", "Carl",
+		"Daniel", "Danny", "Erl",
+		"Fabian", "Jin", "John",
+		"Juan", "Karina", "Leo",
+		"Li", "Luiza", "Mia",
+		"Miranda", "Nickolas", "Olivia",
+		"Pack", "Pamela", "Peter",
+		"Phillip", "Pin", "Ralph",
+		"Robert", "Robin", "Ron",
+		"Saul", "Sean", "Steven",
+		"Tanya", "Thomas", "Victor",
+		"Vincent", "Xi"
 	};
 
-	FillFile3(file, names);
+	FillFile4(file, names);
 
 	return EXIT_SUCCESS;
 }

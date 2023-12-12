@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <random>
 #include <opencv2/opencv.hpp>
 
 #include "Consts.hpp"
@@ -20,7 +21,7 @@ cv::Vec<double, Size> ConvertVectorToVec(const std::vector<double>& vec) {
     return cv::Vec<double, Size>(vec.data());
 }
 
-std::vector<std::vector<double>> ConvertMatToVectors(const cv::Mat& mat) {
+inline std::vector<std::vector<double>> ConvertMatToVectors(const cv::Mat& mat) {
     if (mat.type() != CV_64FC1) {
         throw std::runtime_error("Input matrix should be of type CV_64F (double)");
     }
@@ -34,14 +35,14 @@ std::vector<std::vector<double>> ConvertMatToVectors(const cv::Mat& mat) {
         const auto* rowPtr = mat.ptr<double>(i);
 
         for (int j = 0; j < numCols; j++) {
-            result[i][j] = rowPtr[j]; 
+            result[i][j] = rowPtr[j];
         }
     }
 
     return result;
 }
 
-cv::Mat ConvertVectorsToMat(const std::vector<std::vector<double>>& vec) {
+inline cv::Mat ConvertVectorsToMat(const std::vector<std::vector<double>>& vec) {
     const int numRows = static_cast<int>(vec.size());
     const int numCols = (numRows > 0) ? static_cast<int>(vec[0].size()) : 0;
 
@@ -52,14 +53,14 @@ cv::Mat ConvertVectorsToMat(const std::vector<std::vector<double>>& vec) {
 
         auto* rowPtr = mat.ptr<double>(i);
         for (int j = 0; j < numCols; j++) {
-            rowPtr[j] = row[j]; 
+            rowPtr[j] = row[j];
         }
     }
 
     return mat;
 }
 
-std::vector<std::string> SplitString(const std::string& str, char delimiter) {
+inline std::vector<std::string> SplitString(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;
     std::stringstream ss(str);
     std::string token;
@@ -69,4 +70,11 @@ std::vector<std::string> SplitString(const std::string& str, char delimiter) {
     }
 
     return tokens;
+}
+
+inline int GenerateRandomInt(int min, int max) {
+    std::mt19937 generator(std::random_device{}());
+    std::uniform_int_distribution<int> distribution(min, max);
+
+    return distribution(generator);
 }

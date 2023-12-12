@@ -27,5 +27,12 @@ int main(int argc, char** argv) {
 
 	App app(imageReader, imageProcessorChain, appLogger, argumentsParser, fileService);
 
-	return app.ExecuteApp(argc, argv);
+	try {
+		return app.ExecuteApp(argc, argv);
+	}
+	catch (const std::exception& exception) {
+		std::cout << exception.what() << std::endl;
+
+		return -1;
+	}
 }

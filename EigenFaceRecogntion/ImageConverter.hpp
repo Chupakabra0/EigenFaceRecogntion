@@ -35,6 +35,7 @@ public:
 		cv::Mat result;
 
 		result = cv::Mat(vec);
+		cv::normalize(result, result, 0.0, 255.0, cv::NORM_MINMAX, CV_64FC1);
 		result = result.reshape(0, BASIS_IMAGE_WIDTH);
 		result.convertTo(result, CV_8UC1);
 
