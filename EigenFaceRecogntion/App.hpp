@@ -160,8 +160,6 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	const auto faceRecogntion = std::make_unique<FaceRecognition>();
 	const auto meanFace       = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace(imageVecMatrix.get()));
 	const auto phiMatrix      = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(imageVecMatrix.get(), meanFace.get()));
-	const auto cvrsMatrix     = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
-
 
 	this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*meanFace), "Mean Face");
 	//cv::imwrite("Mean_Face.png", this->imageConverter_->ConvertBack(*meanFace));
@@ -169,13 +167,49 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	// Show phiMatrix
 	//this->ShowNFacesWindow(*phiMatrix, windowN, "Phi Matrix");
 
-	// Eigen calculations
+	// OLD Eigen calculations
+	//const auto cvrsMatrix = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateNormalCovarianceMatrix(phiMatrix.get()));
+	//const auto [tempValues, tempMatrix] = faceRecogntion->CalculateEigenValuesAndVectors(cvrsMatrix.get());
+
+	//auto n = std::min(imageVecMatrix->rows, imageVecMatrix->cols);
+	//auto eigenVectors = std::make_shared<cv::Mat>(n, tempMatrix->cols, CV_64FC1, 0.0);
+
+	//for (auto i = 0; i < eigenVectors->rows; ++i) {
+	//	for (auto j = 0; j < eigenVectors->cols; ++j) {
+	//		eigenVectors->at<double>(i, j) = tempMatrix->at<double>(i, j);
+	//	}
+
+	//	auto tempImage = std::make_unique<cv::Mat>();
+	//	cv::normalize(tempMatrix->row(i), *tempImage, 0.0, 255.0, cv::NORM_MINMAX, CV_64FC1);
+
+	//	this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*tempImage), fmt::format("Eigenface {}", i));
+	//	//cv::imwrite(fmt::format("Eigenface_{}.png", i), this->imageConverter_->ConvertBack(*tempImage));
+	//}
+
+
+	// NEW WAY TO CALC EIGENS
+	const auto cvrsMatrix = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateScrambledCovarianceMatrix(phiMatrix.get()));
 	const auto [tempValues, tempMatrix] = faceRecogntion->CalculateEigenValuesAndVectors(cvrsMatrix.get());
 
-	auto n = std::min(imageVecMatrix->rows, imageVecMatrix->cols);
-	auto eigenVectors = std::make_shared<cv::Mat>(n, tempMatrix->cols, CV_64FC1, 0.0);
+	*tempMatrix = *tempMatrix * *phiMatrix;
+	for (auto i = 0; i < tempMatrix->rows; ++i) {
+		const double norm = cv::norm(tempMatrix->row(i));
+
+		for (auto j = 0; j < tempMatrix->cols; ++j) {
+			tempMatrix->at<double>(i, j) /= norm;
+		}
+	}
+
+	auto eigenVectors = std::make_shared<cv::Mat>(tempValues->rows, phiMatrix->cols, CV_64FC1, 0.0);
 
 	for (auto i = 0; i < eigenVectors->rows; ++i) {
+		if (tempValues->at<double>(i, 0) < 1.0) {
+			*eigenVectors = eigenVectors->rowRange(cv::Range(0, i));
+			break;
+		}
+
+		//fmt::print("Eigenvalue: {}\n", tempValues->at<double>(i, 0));
+
 		for (auto j = 0; j < eigenVectors->cols; ++j) {
 			eigenVectors->at<double>(i, j) = tempMatrix->at<double>(i, j);
 		}
@@ -205,7 +239,7 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	// Check by restoring basic images
 	start = std::chrono::steady_clock::now();
 
-	//this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
+	this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
 
 	end = std::chrono::steady_clock::now();
 	time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

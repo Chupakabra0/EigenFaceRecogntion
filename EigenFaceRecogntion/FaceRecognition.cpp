@@ -18,13 +18,23 @@ cv::Mat* FaceRecognition::CalculatePhiMatrix(const cv::Mat* imageVecMatrix, cons
 	return phiMatrix;
 }
 
-cv::Mat* FaceRecognition::CalculateCovarianceMatrix(cv::Mat* phiMatrix) const {
+cv::Mat* FaceRecognition::CalculateNormalCovarianceMatrix(cv::Mat* phiMatrix) const {
 	auto* cvrs = new cv::Mat();
 	auto avgs = std::make_unique<cv::Mat>();
 
 	cv::calcCovarMatrix(*phiMatrix, *cvrs, *avgs, cv::COVAR_ROWS | cv::COVAR_NORMAL);
 	*cvrs /= phiMatrix->rows;
 	//*cvrs = *phiMatrix->t() * phiMatrix / phiMatrix->rows;
+
+	return cvrs;
+}
+
+cv::Mat* FaceRecognition::CalculateScrambledCovarianceMatrix(cv::Mat* phiMatrix) const {
+	auto* cvrs = new cv::Mat();
+	auto avgs = std::make_unique<cv::Mat>();
+
+	cv::calcCovarMatrix(*phiMatrix, *cvrs, *avgs, cv::COVAR_ROWS | cv::COVAR_SCRAMBLED);
+	*cvrs /= phiMatrix->rows;
 
 	return cvrs;
 }
