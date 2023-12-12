@@ -41,6 +41,8 @@ private:
 	std::unique_ptr<IFileService> fileService_;
 	std::unique_ptr<ImageConverter<cv::Vec<double, BASIS_IMAGE_SIZE>>> imageConverter_;
 
+	cv::NormTypes normType_;
+	double threshold_;
 	std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> meanFace_;
 	std::shared_ptr<cv::Mat> eigenVectors_;
 	std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>> eigenValues_;
@@ -53,6 +55,7 @@ private:
 		cv::Mat* weightsMatrix, cv::Mat* eigenVectors, cv::Vec<double, BASIS_IMAGE_SIZE>* meanFace);
 	void ShowNFacesWindow(const cv::Mat& facesMatrix, int n, const std::string& text);
 	void ShowRecognizedWindow(const cv::Mat& inputImage, const cv::Mat& recognizedImage);
+	void ShowNonRecognizedWindow(const cv::Mat& image);
 };
 
 // App.cpp
@@ -70,7 +73,8 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	: imageReader_(std::move(imageReader)), imageProcessorChain_(std::move(imageProcessorChain)),
 	appLogger_(std::move(appLogger)), argumentsParser_(std::move(argumentsParser)),
 	fileService_(std::move(fileService)), imageConverter_(new ImageConverter<cv::Vec<double, BASIS_IMAGE_SIZE>>()),
-	meanFace_(nullptr), eigenVectors_(nullptr), eigenValues_(nullptr), trainDecomposition_(new std::vector<ImageDecomposition>()) {
+	threshold_(0.0), meanFace_(nullptr), eigenVectors_(nullptr), eigenValues_(nullptr), trainDecomposition_(new std::vector<ImageDecomposition>()),
+	normType_(cv::NormTypes::NORM_L1) {
 
 }
 
@@ -154,13 +158,13 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 
 	// Calculations of mean face, phi faces and covariance matrix
 	const auto faceRecogntion = std::make_unique<FaceRecognition>();
-	const auto meanFace = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace(imageVecMatrix.get()));
-	const auto phiMatrix = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(imageVecMatrix.get(), meanFace.get()));
-	const auto cvrsMatrix = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
+	const auto meanFace       = std::shared_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(faceRecogntion->CalculateMeanFace(imageVecMatrix.get()));
+	const auto phiMatrix      = std::unique_ptr<cv::Mat>(faceRecogntion->CalculatePhiMatrix(imageVecMatrix.get(), meanFace.get()));
+	const auto cvrsMatrix     = std::shared_ptr<cv::Mat>(faceRecogntion->CalculateCovarianceMatrix(phiMatrix.get()));
 
 
 	this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*meanFace), "Mean Face");
-	cv::imwrite("Mean_Face.png", this->imageConverter_->ConvertBack(*meanFace));
+	//cv::imwrite("Mean_Face.png", this->imageConverter_->ConvertBack(*meanFace));
 
 	// Show phiMatrix
 	//this->ShowNFacesWindow(*phiMatrix, windowN, "Phi Matrix");
@@ -180,7 +184,7 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 		cv::normalize(tempMatrix->row(i), *tempImage, 0.0, 255.0, cv::NORM_MINMAX, CV_64FC1);
 
 		this->appLogger_->PrintImage(this->imageConverter_->ConvertBack(*tempImage), fmt::format("Eigenface {}", i));
-		cv::imwrite(fmt::format("Eigenface_{}.png", i), this->imageConverter_->ConvertBack(*tempImage));
+		//cv::imwrite(fmt::format("Eigenface_{}.png", i), this->imageConverter_->ConvertBack(*tempImage));
 	}
 
 	delete tempValues;
@@ -201,7 +205,7 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	// Check by restoring basic images
 	start = std::chrono::steady_clock::now();
 
-	this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
+	//this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
 
 	end = std::chrono::steady_clock::now();
 	time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -210,13 +214,23 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	this->appLogger_->PrintMessage(fmt::format(fmt::fg(fmt::rgb(0, 255, 0)), "Application ended...\n"));
 
 	// Remember important data
-	this->meanFace_ = meanFace;
+	this->meanFace_     = meanFace;
 	this->eigenVectors_ = eigenVectors;
 	for (auto i = 0; i < weightsMatrix->rows; ++i) {
 		this->trainDecomposition_->emplace_back(filePaths[i], weightsMatrix->row(i));
 	}
 
-	this->fileService_->Write("temp.json", this->meanFace_, this->eigenVectors_, this->trainDecomposition_);
+	// Calculate threshold
+	for (auto i = 0; i < weightsMatrix->rows; ++i) {
+		for (auto j = i + 1; j < weightsMatrix->rows; ++j) {
+			this->threshold_ = std::max(this->threshold_, cv::norm(weightsMatrix->row(i), weightsMatrix->row(j), this->normType_));
+		}
+	}
+	this->threshold_ *= 0.85;
+
+	fmt::print("Training is over!\nThreshold: {}\n", this->threshold_);
+
+	this->fileService_->Write("temp.json", this->meanFace_, this->eigenVectors_, this->trainDecomposition_, this->threshold_);
 
 	return App::RETURN_CODES::NO_ERROR;
 }
@@ -224,11 +238,11 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 [[nodiscard]] App::RETURN_CODES App::Guess_() {
 	if (this->meanFace_ == nullptr || this->eigenVectors_ == nullptr || this->trainDecomposition_ == nullptr) {
 		if (std::filesystem::exists("temp.json")) {
-			this->meanFace_ = std::make_shared<cv::Vec<double, BASIS_IMAGE_SIZE>>();
-			this->eigenVectors_ = std::make_shared<cv::Mat>();
+			this->meanFace_           = std::make_shared<cv::Vec<double, BASIS_IMAGE_SIZE>>();
+			this->eigenVectors_       = std::make_shared<cv::Mat>();
 			this->trainDecomposition_ = std::make_shared<std::vector<ImageDecomposition>>();
 
-			this->fileService_->Read("temp.json", this->meanFace_, this->eigenVectors_, this->trainDecomposition_);
+			this->fileService_->Read("temp.json", this->meanFace_, this->eigenVectors_, this->trainDecomposition_, this->threshold_);
 		}
 		else {
 			return App::RETURN_CODES::TRAIN_DATA_NULLPTR;
@@ -273,8 +287,7 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 
 		auto distances = std::make_unique<cv::Mat>(1, weights->cols, CV_64FC1, 0.0);
 		for (auto i = 0; i < distances->cols; ++i) {
-			distances->at<double>(0, i) = cv::norm(*weights, data->row(i), cv::NORM_L1);
-			//distances->at<double>(0, i) = cv::norm(*weights, data->row(i), cv::NORM_L2);
+			distances->at<double>(0, i) = cv::norm(*weights, data->row(i), this->normType_);
 			//distances->at<double>(0, i) = 1.0 - (weights->dot(data->row(i)) / cv::norm(*weights, cv::NORM_L2) / cv::norm(data->row(i), cv::NORM_L2));
 		}
 
@@ -284,33 +297,46 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 		cv::Point minIndex = cv::Point();
 		cv::minMaxLoc(*distances, &minValue, nullptr, &minIndex, nullptr);
 
-		int bestIndex = minIndex.x;
+		int bestIndex = minValue <= this->threshold_ ? minIndex.x : -1;
 
-		fmt::print("{} fit image: {}\nDistance: {}\n",
-			"Best", this->trainDecomposition_->at(bestIndex).GetName(), minValue
-		);
+		if (bestIndex != -1) {
+			fmt::print("{} fit image: {}\nDistance: {}\n",
+				"Best", this->trainDecomposition_->at(bestIndex).GetName(), minValue
+			);
 
-		fmt::print("================\n---------------\n");
+			fmt::print("================\n---------------\n");
 
-		auto recongnizedImage = this->imageConverter_->ConvertBack(
-			*std::unique_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(
-				std::make_unique<FaceRecognition>()->RestoreImage(data->row(bestIndex), this->eigenVectors_.get(), this->meanFace_.get())
-			)
-		);
+			auto recongnizedImage = this->imageConverter_->ConvertBack(
+				*std::unique_ptr<cv::Vec<double, BASIS_IMAGE_SIZE>>(
+					std::make_unique<FaceRecognition>()->RestoreImage(data->row(bestIndex), this->eigenVectors_.get(), this->meanFace_.get())
+				)
+			);
 
-		auto end = std::chrono::steady_clock::now();
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-		fmt::print(fmt::fg(fmt::rgb(255, 255, 0)), "Guessing estimated time: {} ms.\n", time.count());
+			auto end = std::chrono::steady_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+			fmt::print(fmt::fg(fmt::rgb(255, 255, 0)), "Guessing estimated time: {} ms.\n", time.count());
 
-		cv::Mat bestImage = cv::imread(this->trainDecomposition_->at(bestIndex).GetName());
-		if (bestImage.channels() != 3) {
-			cv::cvtColor(bestImage, bestImage, cv::COLOR_GRAY2BGR);
+			cv::Mat bestImage = cv::imread(this->trainDecomposition_->at(bestIndex).GetName());
+			if (bestImage.channels() != 3) {
+				cv::cvtColor(bestImage, bestImage, cv::COLOR_GRAY2BGR);
+			}
+			if (image.channels() != 3) {
+				cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
+			}
+
+			this->ShowRecognizedWindow(image, bestImage);
 		}
-		if (image.channels() != 3) {
-			cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
+		else {
+			fmt::print("There is no fit image!\nDistance: {}\n", minValue);
+			fmt::print("================\n---------------\n");
+
+			auto end = std::chrono::steady_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+			fmt::print(fmt::fg(fmt::rgb(255, 255, 0)), "Guessing estimated time: {} ms.\n", time.count());
+
+			this->ShowNonRecognizedWindow(image);
 		}
 
-		this->ShowRecognizedWindow(image, bestImage);
 	}
 
 	return App::RETURN_CODES::NO_ERROR;
@@ -437,5 +463,32 @@ void App::ShowRecognizedWindow(const cv::Mat& inputImage, const cv::Mat& recogni
 	);
 
 	cv::imshow("Two Images", combinedFramedImage);
+	cv::waitKey();
+}
+
+void App::ShowNonRecognizedWindow(const cv::Mat& image) {
+	std::string inputImageText    = "INPUT";
+	int verticalBorderThickness   = image.rows / 5;
+	int horizontalBorderThickness = image.cols / 5;
+	int textHeight                = image.rows / 8;
+	int textThickness             = 3;
+	double textScale              = 1.0;
+
+	cv::Mat displayImage{};
+	cv::copyMakeBorder(
+		image, displayImage, verticalBorderThickness, verticalBorderThickness,
+		horizontalBorderThickness, horizontalBorderThickness, cv::BORDER_CONSTANT, cv::Scalar(255, 255, 255)
+	);
+
+	int baseline = 0;
+	cv::Size displayTextSize = cv::getTextSize(inputImageText, cv::FONT_HERSHEY_SIMPLEX, textScale, textThickness, &baseline);
+	cv::Point displayTextPos = cv::Point((displayImage.cols - displayTextSize.width) / 2 + horizontalBorderThickness, textHeight);
+
+	cv::putText(
+		displayImage, inputImageText, displayTextPos,
+		cv::FONT_HERSHEY_SIMPLEX, textScale, cv::Scalar(0, 0, 255), textThickness
+	);
+
+	cv::imshow("Unrecognized Image", displayImage);
 	cv::waitKey();
 }
