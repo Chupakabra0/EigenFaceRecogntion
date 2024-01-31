@@ -74,8 +74,29 @@ void FillFile4(std::fstream& out, const std::vector<std::string>& names) {
 	out << t << " " << g;
 }
 
+void FillFile5(std::fstream& out, const std::vector<std::string>& names, const std::vector<std::string>& anothers, const std::vector<std::string>& fruits) {
+	std::string t = "-t ";
+	std::string g = "-g ";
+
+	for (const auto& name : names) {
+		for (int i = 1; i <= 10; ++i) {
+			t += t.size() == 3 ? fmt::format("Dataset\\{}-{}.png", name, i) : fmt::format(",Dataset\\{}-{}.png", name, i);
+		}
+	}
+
+	for (const auto& another : anothers) {
+		g += g.size() == 3 ? fmt::format("Strangers\\{}-1.png", another) : fmt::format(",Strangers\\{}-1.png", another);
+	}
+
+	for (const auto& fruit : fruits) {
+		g += fmt::format(",Fruits\\{}.png", fruit);
+	}
+
+	out << t << " " << g;
+}
+
 int main() {
-	std::fstream file("new_base.txt", std::fstream::out);
+	std::fstream file("test_strangers.txt", std::fstream::out);
 
 	//const std::vector<std::string> names = {
 	//	"Carter", "Cane", "Clint",
@@ -104,13 +125,27 @@ int main() {
 		"Miranda", "Nickolas", "Olivia",
 		"Pack", "Pamela", "Peter",
 		"Phillip", "Pin", "Ralph",
-		"Robert", "Robin", "Ron",
+		"Robert", /*"Robin", "Ron",
+		"Saul", "Sean", "Steven",
+		"Tanya", "Thomas", "Victor",
+		"Vincent", "Xi"*/
+	};
+
+	const std::vector<std::string> anothers = {
+		"Robin", "Ron",
 		"Saul", "Sean", "Steven",
 		"Tanya", "Thomas", "Victor",
 		"Vincent", "Xi"
 	};
 
-	FillFile4(file, names);
+	const std::vector<std::string> fruits = {
+		"banana", "blueberry",
+		"punica", "lemon", "mandarin",
+		"orange", "peach", "pineapple",
+		"plump"
+	};
+
+	FillFile5(file, names, anothers, fruits);
 
 	return EXIT_SUCCESS;
 }

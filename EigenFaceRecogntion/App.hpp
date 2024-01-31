@@ -239,7 +239,7 @@ App::App(IImageReader* imageReader, IImageProcessor* imageProcessorChain, IAppLo
 	// Check by restoring basic images
 	start = std::chrono::steady_clock::now();
 
-	this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
+	//this->RestoreBasicImages_(faceRecogntion.get(), filePaths, weightsMatrix.get(), eigenVectors.get(), meanFace.get());
 
 	end = std::chrono::steady_clock::now();
 	time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -501,7 +501,7 @@ void App::ShowRecognizedWindow(const cv::Mat& inputImage, const cv::Mat& recogni
 }
 
 void App::ShowNonRecognizedWindow(const cv::Mat& image) {
-	std::string inputImageText    = "INPUT";
+	std::string inputImageText    = "UNKNOWN";
 	int verticalBorderThickness   = image.rows / 5;
 	int horizontalBorderThickness = image.cols / 5;
 	int textHeight                = image.rows / 8;
