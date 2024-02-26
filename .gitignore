@@ -92,3 +92,7 @@ packages/*
 *.recipe
 
 images/*
+x64/*
+MeanFaceGenerator/x64/*
+EigenFaceRecogntion/x64/*
+ArgsGenerator/x64/*
